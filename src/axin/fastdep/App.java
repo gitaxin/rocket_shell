@@ -2,6 +2,9 @@ package axin.fastdep;
 
 import java.io.File;
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 
 import org.apache.commons.io.FileUtils;
@@ -10,13 +13,14 @@ import com.alibaba.fastjson2.JSON;
 
 import axin.fastdep.model.Config;
 import axin.fastdep.model.Manifest;
+import axin.fastdep.model.PatchEntry;
 import axin.fastdep.util.FileUtil;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 @Command(name = "rocket-handler", mixinStandardHelpOptions = true, version = "rocket-handler v1.0.0",
-description = "<rocket-handler>一款与Rocket配套的补丁增量离线部署工具, author:haojiaxin")
+description = "<rocket-handler>一款与Rocket配套的补丁增量部署工具, author:haojiaxin")
 public class App implements Callable<Integer> {
 	
 	private static final String DEFAULT_UNIX_CONF_FILE = "/etc/rocket-handler.conf";
@@ -29,8 +33,11 @@ public class App implements Callable<Integer> {
 	
 	
 	
-	@Option(names = {"-i", "--install"}, description = "Rocket生成的补丁包文件, 一般为zip格式")
+	@Option(names = {"-f", "--file"}, description = "Rocket生成的补丁包文件, 一般为zip格式")
     private File zipFile;
+	
+	@Option(names = {"-i", "--install"}, description = "安装补丁包")
+    private boolean install;
 	
     @Option(names = {"-c", "--config"}, description = "配置文件，默认为 win: <user_home>\\rocket-handler.conf, unix: /etc/rocket-handler.conf")
     private File confFile;
@@ -69,9 +76,16 @@ public class App implements Callable<Integer> {
 		parseManifest();
 		System.out.println(manifest);
 		
+		List<String> msgList = fillEntry();
+		if(msgList.size() > 0) {
+			println(msgList);
+			return 0;
+		}
 		
 		
-
+		
+		
+		
 		
 		
 		
@@ -79,6 +93,51 @@ public class App implements Callable<Integer> {
 		
 		
 		return 0;
+	}
+	
+	private int backFile(PatchEntry patchEntry) {
+		
+		File file = new File(config.getPublishRoot(),patchEntry.getRelativePath());
+		if(!file.exists()) {
+			return -1;
+		}
+		
+		try {
+			String md5 = FileUtil.calculateMD5(file);
+			if(md5.equals(patchEntry.getDigest())) {
+				return 0;
+			}
+			
+		}catch (Exception e) {
+		}
+		
+		
+		
+		return 0;
+	}
+	
+	
+	private List<String> fillEntry() {
+		List<String> msg = new ArrayList<>();
+		List<PatchEntry> entryList = manifest.getEntry();
+		for (int i = 0; i < entryList.size(); i++) {
+			PatchEntry patchEntry = entryList.get(i);
+			File file = new File(patchFolder.getPath(),ENTRY_FOLDER + File.separator + patchEntry.getDigest());
+			try {
+				String md5 = FileUtil.calculateMD5(file);
+				if(md5.equals(patchEntry.getDigest())) {
+					patchEntry.setFile(file);
+				}else {
+					msg.add("校验文件完整性 => 文件不完整: " + patchEntry.getRelativePath());
+				}
+				
+			}catch (Exception e) {
+				msg.add("校验文件完整性 => 校验失败: " + patchEntry.getRelativePath() + ", Exception:" + e.getMessage());
+				e.printStackTrace();
+			}
+		}
+		
+		return msg;
 	}
 	
 	
@@ -168,6 +227,14 @@ public class App implements Callable<Integer> {
 	
 	private void println(Object obj) {
 		println(String.valueOf(obj));
+	}
+	
+	private void println(List<String> msgList) {
+		for (int i = 0; i < msgList.size(); i++) {
+			String msg = msgList.get(i);
+			println(msg);
+		}
+		
 	}
 	
 	

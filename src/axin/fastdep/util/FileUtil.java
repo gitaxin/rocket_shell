@@ -3,6 +3,10 @@ package axin.fastdep.util;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -63,6 +67,35 @@ public class FileUtil {
         }
         targetFolder = new File(path);
         return targetFolder;
+    }
+    
+    public static String calculateMD5(String filePath) throws IOException, NoSuchAlgorithmException {
+		File file = new File(filePath);
+        return calculateMD5(file);
+    }
+	
+	
+	public static String calculateMD5(File file) throws IOException, NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        FileInputStream fis = new FileInputStream(file);
+        byte[] buffer = new byte[1024];
+        int bytesRead;
+
+        while ((bytesRead = fis.read(buffer)) != -1) {
+            md.update(buffer, 0, bytesRead);
+        }
+
+        fis.close();
+        byte[] digestBytes = md.digest();
+        BigInteger bigInt = new BigInteger(1, digestBytes);
+        String string = bigInt.toString(16);
+        while (string.length() < 32) {
+        	string = "0" + string;
+        }
+        return string;
+        
+        
+        
     }
 
 }
