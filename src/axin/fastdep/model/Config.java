@@ -19,6 +19,9 @@ public class Config implements Serializable{
 	
 	@JSONField(name="publish_root")
 	private String publishRoot;
+	
+	@JSONField(name="cache_max_days")
+	private Integer cacheMaxDays;
 
 	
 	
@@ -50,10 +53,21 @@ public class Config implements Serializable{
 		this.publishRoot = publishRoot;
 	}
 
+	public Integer getCacheMaxDays() {
+		return cacheMaxDays;
+	}
+
+	public void setCacheMaxDays(Integer cacheMaxDays) {
+		this.cacheMaxDays = cacheMaxDays;
+	}
+
 	@Override
 	public String toString() {
-		return "Config [name=" + name + ", projectName=" + projectName + ", publishRoot=" + publishRoot + "]";
+		return "Config [name=" + name + ", projectName=" + projectName + ", publishRoot=" + publishRoot
+				+ ", cacheMaxDays=" + cacheMaxDays + "]";
 	}
+
+	
 	
 	
 

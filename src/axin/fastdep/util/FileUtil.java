@@ -34,7 +34,7 @@ public class FileUtil {
     	}
     	File targetFolder = new File(path);
     	if(targetFolder.exists()) {
-    		System.out.println("清除旧的目录 => " + targetFolder.getPath());
+    		System.out.println("[Info]清除过时的解压目录 " + targetFolder.getPath());
     		FileUtils.deleteDirectory(targetFolder);
     	}
     	

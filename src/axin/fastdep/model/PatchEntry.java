@@ -19,6 +19,13 @@ public class PatchEntry implements Serializable{
 	
 	private File file;
 	
+	private Boolean success;
+	
+	private String state;
+	
+	private String msg;
+	
+	
 	public String getRelativePath() {
 		return relativePath;
 	}
@@ -51,11 +58,37 @@ public class PatchEntry implements Serializable{
 		this.file = file;
 	}
 
+	public Boolean getSuccess() {
+		return success;
+	}
+
+	public void setSuccess(Boolean success) {
+		this.success = success;
+	}
+
+	public String getState() {
+		return state;
+	}
+
+	public void setState(String state) {
+		this.state = state;
+	}
+
+	public String getMsg() {
+		return msg == null ? "" : msg;
+	}
+
+	public void setMsg(String msg) {
+		this.msg = msg;
+	}
+
 	@Override
 	public String toString() {
 		return "PatchEntry [digest=" + digest + ", fileLastTime=" + fileLastTime + ", relativePath=" + relativePath
-				+ ", file=" + file + "]";
+				+ ", file=" + file + ", success=" + success + ", state=" + state + ", msg=" + msg + "]";
 	}
+
+	
 	
 	
 	
