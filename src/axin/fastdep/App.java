@@ -29,9 +29,12 @@ import axin.fastdep.util.FileUtil;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
-@Command(name = "rocket-handler", mixinStandardHelpOptions = true, version = "rocket-handler v1.0.0",
-description = "<rocket-handler>一款与Rocket配套的补丁增量部署工具, author:haojiaxin")
+@Command(name = "rocket-handler", 
+	mixinStandardHelpOptions = true, 
+	version = "rocket-handler v1.0.0",
+	description = "一款与Rocket配套的补丁增量部署工具, author:haojiaxin")
 public class App implements Callable<Integer> {
 	
 	private static final String DEFAULT_UNIX_CONF_FILE = "/etc/rocket-handler.conf";
@@ -44,11 +47,14 @@ public class App implements Callable<Integer> {
 	
 	
 	
-	@Option(names = {"-f", "--file"}, description = "Rocket生成的补丁包文件, 一般为zip格式")
+	@Parameters(paramLabel = "zipFile", description = "Rocket生成的补丁包文件, 一般为zip格式")
     private File zipFile;
 	
 	@Option(names = {"-i", "--install"}, description = "安装补丁包")
     private boolean install;
+	
+	@Option(names = {"-p", "--parse"}, description = "解析补丁包")
+    private boolean parse;
 	
     @Option(names = {"-c", "--config"}, description = "配置文件，默认为 win: <user_home>\\rocket-handler.conf, unix: /etc/rocket-handler.conf")
     private File confFile;
@@ -86,9 +92,28 @@ public class App implements Callable<Integer> {
 	@Override
 	public Integer call() throws Exception {
 		if(zipFile == null) {
-			throw new RuntimeException("Error: 请使用 -f or --file 指定zip补丁包文件！");
+			throw new RuntimeException("Error: 请指定Rocket生成的补丁包文件！");
 		}
 		
+		if(install) {
+			return install();
+		}else if(parse) {
+			return parse();
+		}else {
+			log("[Error]-i, --install \t安装补丁包");
+			log("[Error]-p, --parse \t解析补丁包");
+			return 1;
+		}
+	}
+	
+	/**
+	 * 安装文件
+	 * @return
+	 * @throws Exception
+	 * @author haojiaxin <https://www.yuque.com/xinblog>
+	 * @date 2024年9月7日 17:50:24
+	 */
+	private int install() throws Exception {
 		if(confFile == null) {
 			initDefaultConfFile();
 		}
@@ -103,7 +128,7 @@ public class App implements Callable<Integer> {
 			return 1;
 		}
 		
-		//询问是否安装
+		
 		log("[Info]读取补丁包 ...");
 		patchFolder = FileUtil.unzip(zipFile);
 		if(!patchFolder.exists()) {
@@ -139,6 +164,8 @@ public class App implements Callable<Integer> {
 			log((i+1) + ".\t" + patchEntry.getFileLastTime() + "\t" + patchEntry.getRelativePath());
 		}
 		log(LINE);
+		
+		//询问是否安装
 		@SuppressWarnings("resource")
 		Scanner scanner = new Scanner(System.in);
 		String q = "将安装项目【"+manifest.getProjectName()+"】的 "+entry.size()+" 个文件到目录 "+config.getPublishRoot()+"? (y/n):";
@@ -239,6 +266,68 @@ public class App implements Callable<Integer> {
 		}
 		
 		log(LINE);
+		
+		return 0;
+	}
+	
+	/**
+	 * 解析文件
+	 * @return
+	 * @throws Exception
+	 * @author haojiaxin <https://www.yuque.com/xinblog>
+	 * @date 2024年9月7日 17:50:36
+	 */
+	private int parse() throws Exception{
+		log("[Info]读取补丁包 ...");
+		patchFolder = FileUtil.unzip(zipFile);
+		if(!patchFolder.exists()) {
+			throw new RuntimeException("[Error]补丁包读取失败, 未能成功解压补丁包！");
+		}
+		
+		log("[Info]读取manifest ...");
+		parseManifest();
+		
+		List<String> msgList = fillEntry();
+		if(msgList.size() > 0) {
+			log(msgList);
+			return 0;
+		}
+		
+		List<PatchEntry> entry = manifest.getEntry();
+		
+		if(entry == null || entry.size() == 0) {
+			log("[Info]未读取到需要解析的文件！");
+			return 0;
+		}
+		
+	   	
+		int success = 0;
+	   	int error = 0;
+	   
+	   	log("[Info]开始解析....");
+	   	
+	   	File parseRoot = new File(patchFolder.getParent(),patchFolder.getName() + "_root");
+	   	if(parseRoot.exists()) {
+	   		FileUtils.deleteDirectory(parseRoot);
+	   	}
+	   	
+		for (int i = 0; i < entry.size(); i++) {
+			PatchEntry patchEntry = entry.get(i);
+			File targetFile = new File(patchFolder.getParent(),patchFolder.getName() + "_root" + File.separator + patchEntry.getRelativePath());
+			FileUtils.copyFile(patchEntry.getFile(), targetFile);
+			if(targetFile.exists()) {
+				success ++;
+				log("[Info]解析文件成功 -> " + targetFile.getPath());
+			}else {
+				error ++;
+				log("[Error]解析文件失败 -> " + patchEntry.getRelativePath());
+			}
+		}
+		
+		String format = "[Info]解析结果 -> 总:%s  成功:%s  失败:%s";
+		String summary = String.format(format, entry.size(), success, error);
+		log(summary);
+		log("解压目录: " + parseRoot.getPath());
 		
 		return 0;
 	}
@@ -412,7 +501,7 @@ public class App implements Callable<Integer> {
 		for (int i = 0; i < entryList.size(); i++) {
 			PatchEntry patchEntry = entryList.get(i);
 			if(os != null && os.toLowerCase().startsWith("linux")) {
-				patchEntry.setRelativePath(patchEntry.getRelativePath().replace("/", "\\"));
+				patchEntry.setRelativePath(patchEntry.getRelativePath().replace("\\", "/"));
 			}
 			File file = new File(patchFolder.getPath(),ENTRY_FOLDER + File.separator + patchEntry.getDigest());
 			try {
@@ -447,7 +536,7 @@ public class App implements Callable<Integer> {
             	throw new RuntimeException("[Error]manifest file parse error:  parse result is null!");
             }
             
-            if(config.getProjectName() == null) {
+            if(manifest.getProjectName() == null) {
             	throw new RuntimeException("[Error]manifest file error:  the project_name is null!");
             }
         } catch (IOException e) {
