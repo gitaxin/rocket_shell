@@ -3,7 +3,7 @@ package axin.fastdep.model;
 import java.io.Serializable;
 import java.util.List;
 
-import com.alibaba.fastjson2.annotation.JSONField;
+import com.alibaba.fastjson.annotation.JSONField;
 
 /**
  * @author haojiaxin <https://www.yuque.com/xinblog>

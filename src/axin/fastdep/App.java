@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.io.FileUtils;
 
-import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson.JSON;
 
 import axin.fastdep.model.Config;
 import axin.fastdep.model.Env;
@@ -38,9 +38,10 @@ import picocli.CommandLine.Parameters;
 	description = "一个与Rocket配套的补丁增量部署工具, author:haojiaxin")
 public class App implements Callable<Integer> {
 	
-	private static final String DEFAULT_UNIX_CONF_FILE = "/etc/rocket-handler.conf";
 	
-	private static final String DEFAULT_WIN_CONF_FILE = "rocket-handler.conf";
+	private static final String DEFAULT_UNIX_CONF_FILE = "/etc/rocket-shell.conf";
+	
+	private static final String DEFAULT_WIN_CONF_FILE = "rocket-shell.conf";
 	
 	private static final String ENTRY_FOLDER = "entry";
 	
@@ -57,7 +58,7 @@ public class App implements Callable<Integer> {
 	@Option(names = {"-p", "--parse"}, description = "解析补丁包")
     private boolean parse;
 	
-    @Option(names = {"-c", "--config"}, description = "配置文件，默认为 win: <user_home>\\rocket-handler.conf, unix: /etc/rocket-handler.conf")
+    @Option(names = {"-c", "--config"}, description = "配置文件，默认为 win: <user_home>\\rocket-shell.conf, unix: /etc/rocket-shell.conf")
     private File confFile;
     
     //配置
@@ -71,7 +72,7 @@ public class App implements Callable<Integer> {
     
     private static final SimpleDateFormat SDF_YYYY_MM_DD = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     
-    private static final SimpleDateFormat SDF_YYYYMMDDHHMMSS = new SimpleDateFormat("yyyyMMdd_HHmmss");
+    private static final SimpleDateFormat SDF_YYYYMMDDHHMMSS = new SimpleDateFormat("yyMMdd_HHmmss");
     
     private static final Pattern VersionDatePattern = Pattern.compile("^(?<year>\\d{4})(?<month>\\d{2})(?<day>\\d{2})$");
     
@@ -305,6 +306,9 @@ public class App implements Callable<Integer> {
 			report(lineStr);
 		}
 		
+		report(LINE_SIMPLE);
+		report(SDF_YYYY_MM_DD.format(new Date()));
+		
 		log(LINE);
 		
 		return 0;
@@ -533,7 +537,7 @@ public class App implements Callable<Integer> {
 		
 	}
 	
-	private File[] filterDeleteable(File targetFile) {
+	private File[] filterDeleteable(final File targetFile) {
 		File dir = targetFile.getParentFile();
 		File[] listFiles = dir.listFiles(new FilenameFilter() {
 			@Override
@@ -572,7 +576,7 @@ public class App implements Callable<Integer> {
 	
 	
 	private List<String> fillEntry() {
-		List<String> msg = new ArrayList<>();
+		List<String> msg = new ArrayList<String>();
 		List<PatchEntry> entryList = manifest.getEntry();
 		String os = System.getProperty("os.name");
 		for (int i = 0; i < entryList.size(); i++) {

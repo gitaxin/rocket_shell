@@ -2,7 +2,7 @@ package axin.fastdep.model;
 
 import java.io.Serializable;
 
-import com.alibaba.fastjson2.annotation.JSONField;
+import com.alibaba.fastjson.annotation.JSONField;
 
 public class Env implements Serializable{
 
