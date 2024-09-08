@@ -23,6 +23,7 @@ import org.apache.commons.io.FileUtils;
 import com.alibaba.fastjson2.JSON;
 
 import axin.fastdep.model.Config;
+import axin.fastdep.model.Env;
 import axin.fastdep.model.Manifest;
 import axin.fastdep.model.PatchEntry;
 import axin.fastdep.util.FileUtil;
@@ -31,10 +32,10 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
-@Command(name = "rocket-handler", 
+@Command(name = "rocket-shell", 
 	mixinStandardHelpOptions = true, 
-	version = "rocket-handler v1.0.0",
-	description = "一款与Rocket配套的补丁增量部署工具, author:haojiaxin")
+	version = "rocket-shell v1.0.0",
+	description = "一个与Rocket配套的补丁增量部署工具, author:haojiaxin")
 public class App implements Callable<Integer> {
 	
 	private static final String DEFAULT_UNIX_CONF_FILE = "/etc/rocket-handler.conf";
@@ -70,7 +71,7 @@ public class App implements Callable<Integer> {
     
     private static final SimpleDateFormat SDF_YYYY_MM_DD = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     
-    private static final SimpleDateFormat SDF_YYYYMMDDHHMMSS = new SimpleDateFormat("yyyyMMddHHmmss");
+    private static final SimpleDateFormat SDF_YYYYMMDDHHMMSS = new SimpleDateFormat("yyyyMMdd_HHmmss");
     
     private static final Pattern VersionDatePattern = Pattern.compile("^(?<year>\\d{4})(?<month>\\d{2})(?<day>\\d{2})$");
     
@@ -121,11 +122,50 @@ public class App implements Callable<Integer> {
 		
 		parseConfig();
 		
-		log("[Info]安装["+ config.getProjectName() +"]补丁到目录 " + config.getPublishRoot());
+		String publishRoot = "";
 		
-		if(!new File(config.getPublishRoot()).exists()) {
-			log("[Error]安装目录 "+ config.getPublishRoot() +" 不存在！");
-			return 1;
+		List<Env> envs = config.getEnvs();
+		if(envs.size() == 1) {
+			publishRoot = envs.get(0).getPublishRoot();
+			log("[Info]安装["+ config.getProjectName() +"]补丁到目录 " + publishRoot);
+			
+			if(!new File(publishRoot).exists()) {
+				log("[Error]安装目录 "+ publishRoot +" 不存在！");
+				return 1;
+			}
+		}else {
+			//询问安装环境
+			log(LINE);
+			log("本机包含多个环境:");
+			for (int i = 0; i < envs.size(); i++) {
+				Env env = envs.get(i);
+				log(i + ".\t【"+env.getName()+"】" + env.getPublishRoot());
+			}
+			log(LINE);
+			
+			@SuppressWarnings("resource")
+			Scanner scanner = new Scanner(System.in);
+			String q = "请选择安装环境(按q退出, 按0-"+(envs.size() - 1)+"选择环境):";
+		   	System.out.print(q);
+		   	String enter = scanner.nextLine();
+		   	int index = 0;
+		   	while((index = checkValue(enter,envs.size() - 1)) < -1) {
+		   		System.out.print(q);
+		   		enter = scanner.nextLine();
+		   	}
+		   	
+		   	if(index == -1) {
+		   		return 0;
+		   	}
+		   	
+		   	publishRoot = envs.get(index).getPublishRoot();
+			log("[Info]安装["+ config.getProjectName() +"]补丁到目录 " + publishRoot);
+			
+			if(!new File(publishRoot).exists()) {
+				log("[Error]安装目录 "+ publishRoot +" 不存在！");
+				return 1;
+			}
+			
 		}
 		
 		
@@ -158,7 +198,7 @@ public class App implements Callable<Integer> {
 		
 		
 		log(LINE);
-		log(zipFile.getName() + " 补丁文件清单:");
+		log(zipFile.getPath() + " 补丁文件清单:");
 		for (int i = 0; i < entry.size(); i++) {
 			PatchEntry patchEntry = entry.get(i);
 			log((i+1) + ".\t" + patchEntry.getFileLastTime() + "\t" + patchEntry.getRelativePath());
@@ -168,7 +208,7 @@ public class App implements Callable<Integer> {
 		//询问是否安装
 		@SuppressWarnings("resource")
 		Scanner scanner = new Scanner(System.in);
-		String q = "将安装项目【"+manifest.getProjectName()+"】的 "+entry.size()+" 个文件到目录 "+config.getPublishRoot()+"? (y/n):";
+		String q = "将安装项目【"+manifest.getProjectName()+"】的 "+entry.size()+" 个文件到目录 "+publishRoot+"? (y/n):";
 	   	 System.out.print(q);
 	   	 String enter = scanner.nextLine();
 	   	 while(enter == null || enter.trim().length() == 0) {
@@ -186,7 +226,7 @@ public class App implements Callable<Integer> {
 	   	log("[Info]开始安装....");
 		for (int i = 0; i < entry.size(); i++) {
 			PatchEntry patchEntry = entry.get(i);
-			int backState = backFile(patchEntry);
+			int backState = backFile(publishRoot,patchEntry);
 			if(backState == 0) {
 				//文件相同
 				success++;
@@ -196,7 +236,7 @@ public class App implements Callable<Integer> {
 				continue;
 			}
 			log("[Info]安装文件 -> " + patchEntry.getRelativePath());
-			File targetFile = new File(config.getPublishRoot(),patchEntry.getRelativePath());
+			File targetFile = new File(publishRoot,patchEntry.getRelativePath());
 			FileUtils.copyFile(patchEntry.getFile(), targetFile);
 			if(targetFile.exists()) {
 				long time = SDF_YYYY_MM_DD.parse(patchEntry.getFileLastTime()).getTime();
@@ -271,6 +311,43 @@ public class App implements Callable<Integer> {
 	}
 	
 	/**
+	 *  
+	 * @param str
+	 * @param maxIndex
+	 * @return
+	 * 
+	 *  -2 输入下标错误
+	 *  -1 退出
+	 *  0 - n 正确的下标
+	 * 
+	 * @author haojiaxin <https://www.yuque.com/xinblog>
+	 * @date 2024年9月8日 15:44:59
+	 */
+	private int checkValue(String str, int maxIndex) {
+		if(str == null) {
+			return -2;
+		}
+		str = str.trim();
+		if(str.length() == 0) {
+			return -2;
+		}
+		
+		if(str.equalsIgnoreCase("q")) {
+			return -1;
+		}
+		
+		try {
+			int index = Integer.parseInt(str);
+			if(index < 0 || index > maxIndex) {
+				return -2;
+			}
+			return index;
+		}catch (Exception e){
+			return -2;
+		}
+	}
+	
+	/**
 	 * 解析文件
 	 * @return
 	 * @throws Exception
@@ -340,9 +417,9 @@ public class App implements Callable<Integer> {
 	 * @author haojiaxin <https://www.yuque.com/xinblog>
 	 * @date 2024年9月1日 11:25:52
 	 */
-	private int backFile(PatchEntry patchEntry) {
+	private int backFile(String publishRoot, PatchEntry patchEntry) {
 		
-		File file = new File(config.getPublishRoot(),patchEntry.getRelativePath());
+		File file = new File(publishRoot,patchEntry.getRelativePath());
 		if(!file.exists()) {
 			return -1;
 		}
@@ -551,16 +628,25 @@ public class App implements Callable<Integer> {
             String content = FileUtils.readFileToString(confFile, "UTF-8");
             config = JSON.parseObject(content, Config.class);
             if(config == null) {
-            	throw new RuntimeException("[Error]config file parse error:  parse result is null!");
+            	throw new RuntimeException("[Error]config file parse error:  parse result is empty!");
             }
             
             if(config.getProjectName() == null) {
-            	throw new RuntimeException("[Error]config file error:  the project_name is null!");
+            	throw new RuntimeException("[Error]config file error:  the project_name is empty!");
             }
             
-            if(config.getPublishRoot() == null) {
-            	throw new RuntimeException("[Error]config file error:  the publish_root is null!");
+            if(config.getEnvs() == null || config.getEnvs().size() == 0) {
+            	throw new RuntimeException("[Error]config file error:  the envs is empty!");
             }
+            List<Env> envs = config.getEnvs();
+            for (int i = 0; i < envs.size(); i++) {
+				Env env = envs.get(i);
+				if(env.getPublishRoot() == null || env.getPublishRoot().trim().length() == 0) {
+	            	throw new RuntimeException("[Error]config file error:  the envs.publish_root is empty!");
+	            }
+			}
+            
+            
             
             if(config.getCacheMaxDays() == null) {
     			config.setCacheMaxDays(DEFAULT_CACHE_MAX_DAYS);

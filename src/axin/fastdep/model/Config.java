@@ -1,6 +1,7 @@
 package axin.fastdep.model;
 
 import java.io.Serializable;
+import java.util.List;
 
 import com.alibaba.fastjson2.annotation.JSONField;
 
@@ -17,8 +18,7 @@ public class Config implements Serializable{
 	@JSONField(name="project_name")
 	private String projectName;
 	
-	@JSONField(name="publish_root")
-	private String publishRoot;
+	private List<Env> envs;
 	
 	@JSONField(name="cache_max_days")
 	private Integer cacheMaxDays;
@@ -34,8 +34,6 @@ public class Config implements Serializable{
 	}
 
 	
-	
-	
 
 	public String getProjectName() {
 		return projectName;
@@ -45,13 +43,6 @@ public class Config implements Serializable{
 		this.projectName = projectName;
 	}
 
-	public String getPublishRoot() {
-		return publishRoot;
-	}
-
-	public void setPublishRoot(String publishRoot) {
-		this.publishRoot = publishRoot;
-	}
 
 	public Integer getCacheMaxDays() {
 		return cacheMaxDays;
@@ -61,12 +52,21 @@ public class Config implements Serializable{
 		this.cacheMaxDays = cacheMaxDays;
 	}
 
-	@Override
-	public String toString() {
-		return "Config [name=" + name + ", projectName=" + projectName + ", publishRoot=" + publishRoot
-				+ ", cacheMaxDays=" + cacheMaxDays + "]";
+	public List<Env> getEnvs() {
+		return envs;
 	}
 
+	public void setEnvs(List<Env> envs) {
+		this.envs = envs;
+	}
+
+	@Override
+	public String toString() {
+		return "Config [name=" + name + ", projectName=" + projectName + ", envs=" + envs + ", cacheMaxDays="
+				+ cacheMaxDays + "]";
+	}
+
+	
 	
 	
 	
