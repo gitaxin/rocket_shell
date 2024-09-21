@@ -58,6 +58,9 @@ public class App implements Callable<Integer> {
 	@Option(names = {"-p", "--parse"}, description = "解析补丁包")
     private boolean parse;
 	
+	@Option(names = {"-l", "--list"}, description = "查看补丁文件明细")
+    private boolean list;
+	
     @Option(names = {"-c", "--config"}, description = "配置文件，默认为 win: <user_home>\\rocket-shell.conf, unix: /etc/rocket-shell.conf")
     private File confFile;
     
@@ -99,11 +102,14 @@ public class App implements Callable<Integer> {
 		
 		if(install) {
 			return install();
+		}else if(list) {
+			return list();
 		}else if(parse) {
 			return parse();
 		}else {
-			log("[Error]-i, --install \t安装补丁包");
-			log("[Error]-p, --parse \t解析补丁包");
+			println("[Error]-i, --install \t安装补丁包");
+			println("[Error]-l, --list \t查看补丁文件明细");
+			println("[Error]-p, --parse \t解析补丁包");
 			return 1;
 		}
 	}
@@ -349,6 +355,41 @@ public class App implements Callable<Integer> {
 		}catch (Exception e){
 			return -2;
 		}
+	}
+	
+	private void println(String str) {
+		System.out.println(str);
+	}
+	
+	private int list() throws Exception{
+		patchFolder = FileUtil.unzip(zipFile);
+		if(!patchFolder.exists()) {
+			throw new RuntimeException("[Error]补丁包读取失败, 未能成功解压补丁包！");
+		}
+		
+		parseManifest();
+		
+		List<PatchEntry> entryList = manifest.getEntry();
+		if(entryList == null || entryList.size() == 0) {
+			println("[Info]未读取到文件！");
+			return 0;
+		}
+		println("文件路径:\t" + zipFile.getPath());
+		println("项目:\t" + manifest.getProjectName());
+		println("补丁文件数量:\t" + entryList.size());
+		String os = System.getProperty("os.name");
+		println(LINE);
+		for (int i = 0; i < entryList.size(); i++) {
+			PatchEntry patchEntry = entryList.get(i);
+			if(os != null && os.toLowerCase().startsWith("linux")) {
+				patchEntry.setRelativePath(patchEntry.getRelativePath().replace("\\", "/"));
+			}
+			println((i+1) + ".\t" + patchEntry.getFileLastTime() + "\t" + patchEntry.getRelativePath());
+			
+		}
+		println(LINE);
+		
+		return 0;
 	}
 	
 	/**
@@ -758,7 +799,6 @@ public class App implements Callable<Integer> {
 		if(logFile != null) {
 			System.out.println("日志文件: " + logFile.getAbsolutePath());
 		}
-		
 		if(reportFile != null) {
 			System.out.println("报告文件: " + reportFile.getAbsolutePath());
 		}
